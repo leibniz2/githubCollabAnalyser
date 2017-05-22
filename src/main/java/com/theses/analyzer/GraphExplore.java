@@ -37,8 +37,11 @@ public class GraphExplore {
 	GraphExplore() {
 		graph.setStrict( false );
 		graph.setAutoCreate( true );
-		parseAndGraph( loadFromFile("C:/data/small_issues.json"), EVENT_ISSUES);
+		//parseAndGraph( loadFromFile("C:/data/small_issues.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_02pr.json"), EVENT_PR);
 		setGraph();
+		graph.display();
 		calculateScores();
 		calculateWeightedScores();
 		
@@ -162,10 +165,9 @@ public class GraphExplore {
 	public void parseAndGraph( byte[] bytesArray , int eventType ){
 		
 		Any obj = JsonIterator.deserialize(bytesArray);
-		
-		if( eventType == 0) {
-			String payload, issueObj, userObj, status, repo_name, username;
-			Node usr, repo;
+		Node usr, repo;
+		String payload, issueObj, userObj, status, repo_name, username;
+		if( eventType == 0) {		
 			for( Any ob : obj ) {
 				payload = ob.toString("payload"); // get payload object from response object
 				issueObj = JsonIterator.deserialize(payload).toString("issue"); // get issue object from payload object
@@ -185,7 +187,24 @@ public class GraphExplore {
 				edge.addAttribute("ui.label", status);
 			}
 		} else if ( eventType == 1) { // parsing for pull request
-			
+			for( Any ob : obj ) {
+				payload = ob.toString("payload"); // get payload object from response object
+				issueObj = JsonIterator.deserialize(payload).toString("pull_request"); // get pull request object from payload object
+				userObj = JsonIterator.deserialize(issueObj).toString("user"); // get user object from issue object
+				
+				repo_name = ob.toString("repo_name"); // get repo name
+				username = JsonIterator.deserialize(userObj).toString("login"); // get username of pull request sender 
+				status = JsonIterator.deserialize(issueObj).toString("merged"); // get issue status (open or closed)
+				
+				usr = graph.addNode(username);
+				usr.addAttribute("ui.label", username);
+				repo = graph.addNode(repo_name);
+				repo.addAttribute("ui.label", repo_name);
+//				Thread.sleep(100);
+				Edge edge = graph.addEdge( ""+usr.getId()+repo.getId() , usr, repo);
+				edge.addAttribute("status",(status == "true" ? "merged" : "unmerged"));
+				edge.addAttribute("ui.label", (status == "true" ? "merged" : "unmerged"));
+			}
 		} else {
 			System.out.println("Unhandled parsing event type");
 		}

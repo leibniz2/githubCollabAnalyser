@@ -10,17 +10,12 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.graphstream.algorithm.*;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.*;
-import org.graphstream.ui.view.View;
-import org.graphstream.ui.view.Viewer;
 
 import com.jsoniter.*;
 import com.jsoniter.any.Any;
@@ -28,11 +23,12 @@ import com.jsoniter.any.Any;
 public class GraphExplore {
 	
 	double MAX_POINT = .50;
-	int EVENT_ISSUES = 0, EVENT_PR = 1, ALL = 0, SCORES_ONLY = 1, COUNTER_ONLY = 2, PR_ONLY = 3, ISSUES_ONLY = 4;
+	int EVENT_ISSUES = 0, EVENT_PR = 1, ALL = 0, SCORES_ONLY = 1, COUNTER_ONLY = 2, PR_ONLY = 3, ISSUES_ONLY = 4, FINAL_HUB = -1, FINAL_WEIGHTED = -2;
 	Graph graph = new MultiGraph("Collaboration Graph");
 	List<GitNode> gitList = new ArrayList<GitNode>();
 	Map<String, Double> authorityScores = new HashMap<String, Double>();
 	Map<String, Double> hubScores = new HashMap<String, Double>();
+	Map<String, Double> weightedScores = new HashMap<String, Double>();
 	
 	GraphExplore() {
 		graph.setStrict( false );
@@ -46,9 +42,9 @@ public class GraphExplore {
 		calculateWeightedScores();
 		
 		// optional prints
-//		getTopRepositories( false ); // before weighted
-//		getTopRepositories( true ); // after weighted
-		printResult(SCORES_ONLY); // for debug, print after weighted along with other data.
+//		getTopRepositories( false ); // after weighted
+		getTopRepositories( true ); // before weighted
+		printResult(FINAL_HUB); // for debug, print after weighted along with other data.
 	}
 	
 	public void calculateWeightedScores(){
@@ -76,6 +72,7 @@ public class GraphExplore {
 				n.setStatusCount(open, close);
 				n.setPRCount( merged, pr );
 				n.setWeightedScore(hubScore + (totalBoost * hubScore));
+				weightedScores.put(n.getName(), hubScore + (totalBoost * hubScore));
 			}
 		}
 	}
@@ -211,12 +208,41 @@ public class GraphExplore {
 	}
 	
 	// sort top 10
-	public void getTopRepositories( boolean afterWeighted ){
-		if( afterWeighted ){
-			//TODO
+	Map<String, Double> sorted = new HashMap<String, Double>();
+	public void getTopRepositories( boolean beforeWeighted ){
+		if( beforeWeighted ){	
+			sorted = crunchifySortMap(hubScores);
 		} else {
-			
+			sorted = crunchifySortMap(weightedScores);
 		}
+		for (Map.Entry<String, Double> entry : sorted.entrySet()) {	
+			if( entry.getKey().contains("/") ) {
+				System.out.println(entry.getKey() + "\t" + entry.getValue());
+			}
+		}
+	}
+	
+	public static <K, V extends Comparable<? super V>> Map<K, V> crunchifySortMap(final Map<K, V> mapToSort) {
+		List<Map.Entry<K, V>> entries = new ArrayList<Map.Entry<K, V>>(mapToSort.size());
+ 
+		entries.addAll(mapToSort.entrySet());
+ 
+		// Sorts the specified list according to the order induced by the specified comparator
+		Collections.sort(entries, new Comparator<Map.Entry<K, V>>() {
+			public int compare(final Map.Entry<K, V> entry1, final Map.Entry<K, V> entry2) {
+				// Compares this object with the specified object for order
+				return entry1.getValue().compareTo(entry2.getValue());
+			}
+		});
+ 
+		Map<K, V> sortedCrunchifyMap = new LinkedHashMap<K, V>();
+ 
+		// The Map.entrySet method returns a collection-view of the map
+		for (Map.Entry<K, V> entry : entries) {
+			sortedCrunchifyMap.put(entry.getKey(), entry.getValue());
+		}
+ 
+		return sortedCrunchifyMap;
 	}
 	
 	// not yet finished
@@ -229,8 +255,9 @@ public class GraphExplore {
 							+ " -> Hub: " + hubScores.get(n.getName()) + " | Auth: " + authorityScores.get(n.getName())
 							+ " | " + "Open: " + n.getOpenCount() + " | Close: " + n.getCloseCount()
 							+ " | Boost: " + n.getBoost()
-							+ " | Merged: " + n.getMerged() + " | Total PR: " + n.getPr()
-							+ n.getBoost() + " | weighted score: " + n.getWeightedScore());
+							+ " | Merged: " + n.getMerged() 
+							+ " | Total PR: " + n.getPr()
+							+ " | weighted score: " + n.getWeightedScore());
 				} else if( type == COUNTER_ONLY) {
 					System.out.println( n.getName() 
 							+" -> Open: " + n.getOpenCount() + " | Close: " + n.getCloseCount()
@@ -246,7 +273,9 @@ public class GraphExplore {
 				} else if( type == ISSUES_ONLY ){
 					System.out.println( n.getName() 
 							+" -> Open: " + n.getOpenCount() + " | Close: " + n.getCloseCount());
-				} else {
+				} else if( type == FINAL_HUB ) {	
+				}
+				else {
 					System.out.println("Unhandled print type, fallback print all!");
 					printResult(ALL);
 				}

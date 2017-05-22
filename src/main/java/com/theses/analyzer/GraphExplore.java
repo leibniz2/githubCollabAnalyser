@@ -2,9 +2,12 @@ package com.theses.analyzer;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -19,6 +22,7 @@ import org.graphstream.graph.implementations.*;
 
 import com.jsoniter.*;
 import com.jsoniter.any.Any;
+import com.jsoniter.output.JsonStream;
 
 public class GraphExplore {
 	
@@ -33,18 +37,29 @@ public class GraphExplore {
 	GraphExplore() {
 		graph.setStrict( false );
 		graph.setAutoCreate( true );
-		//parseAndGraph( loadFromFile("C:/data/small_issues.json"), EVENT_ISSUES);
-		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
-		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_02pr.json"), EVENT_PR);
+		//parseAndGraph( loadFromFile("C:/data/sample_1.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_is.json"), EVENT_ISSUES);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_is.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_is.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_is.json"), EVENT_ISSUES);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_is.json"), EVENT_ISSUES);
+		
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_pr.json"), EVENT_PR);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_pr.json"), EVENT_PR);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_pr.json"), EVENT_PR);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_pr.json"), EVENT_PR);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_pr.json"), EVENT_PR);
+//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/final_pr02.json"), EVENT_PR);
 		setGraph();
-		graph.display();
+		//graph.display();
 		calculateScores();
 		calculateWeightedScores();
 		
-		// optional prints
-//		getTopRepositories( false ); // after weighted
-		getTopRepositories( true ); // before weighted
-		printResult(FINAL_HUB); // for debug, print after weighted along with other data.
+		// optional prints true if score before weighted
+		getTopRepositories( true, false ); // after weighted
+		getTopRepositories( false , false ); // before weighted and will right to file flag
+		//printResult(ALL); // for debug, print after weighted along with other data.
 	}
 	
 	public void calculateWeightedScores(){
@@ -64,7 +79,7 @@ public class GraphExplore {
 						pr++;
 					}
 				}
-				double hubScore = hubScores.get(n.getName());
+				double hubScore = authorityScores.get(n.getName());
 				double boostIssues = MAX_POINT  * ( close / (open + close)); 
 				double boostPR = MAX_POINT * ( merged / pr );
 				double totalBoost = (Double.isNaN(boostIssues)? 0 : boostIssues) + (Double.isNaN(boostPR)? 0 : boostPR);
@@ -78,7 +93,7 @@ public class GraphExplore {
 	}
 	
 	public void calculateScores(){
-		for( int i = 0; i < 10000; i++ ) {
+		for( int i = 0; i < 100000; i++ ) {
 			double norm = 0;
 			for( GitNode g : gitList ) {
 				if( g.isUserNode() ) {
@@ -209,17 +224,40 @@ public class GraphExplore {
 	
 	// sort top 10
 	Map<String, Double> sorted = new HashMap<String, Double>();
-	public void getTopRepositories( boolean beforeWeighted ){
+	public void getTopRepositories( boolean beforeWeighted, boolean writeToFile ){
+		String preText;
 		if( beforeWeighted ){	
 			sorted = crunchifySortMap(hubScores);
+			preText = "hubTop10@" + new Date().toString();
+			System.out.println("Hub scores:");
 		} else {
 			sorted = crunchifySortMap(weightedScores);
+			preText = "weightedTop10@" + new Date().toString();
+			System.out.println("Weighted scores:");
 		}
+		
+		int ctr = 0;
+		Map<String, Double> tmp = new HashMap<String, Double>();
 		for (Map.Entry<String, Double> entry : sorted.entrySet()) {	
-			if( entry.getKey().contains("/") ) {
+			if( entry.getKey().contains("/") && ctr < 10) {
+				tmp.put(entry.getKey(), entry.getValue());
 				System.out.println(entry.getKey() + "\t" + entry.getValue());
-			}
+				ctr++;
+			} 
 		}
+		
+		if( writeToFile ) {
+			try {
+				FileWriter file = new FileWriter("/Users/rrosal/Documents/" + preText + ".json");
+				file.write(JsonStream.serialize(tmp));
+				file.flush();
+				file.close();
+				System.out.println("File created");
+			} catch (Exception e) {
+				e.printStackTrace();
+			} 
+		}
+		
 	}
 	
 	public static <K, V extends Comparable<? super V>> Map<K, V> crunchifySortMap(final Map<K, V> mapToSort) {

@@ -20,6 +20,8 @@ import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.*;
 
+import edu.uci.ics.jung.algorithms.scoring.HITS;
+
 import com.jsoniter.*;
 import com.jsoniter.any.Any;
 import com.jsoniter.output.JsonStream;
@@ -28,60 +30,67 @@ public class GraphExplore {
 	
 	double MAX_POINT = .50;
 	int EVENT_ISSUES = 0, EVENT_PR = 1, ALL = 0, SCORES_ONLY = 1, COUNTER_ONLY = 2, PR_ONLY = 3, ISSUES_ONLY = 4, FINAL_HUB = -1, FINAL_WEIGHTED = -2;
-	Graph graph = new MultiGraph("Collaboration Graph");
+	Graph graph = new SingleGraph("Collaboration Graph");
 	List<GitNode> gitList = new ArrayList<GitNode>();
 	Map<String, Double> authorityScores = new HashMap<String, Double>();
 	Map<String, Double> hubScores = new HashMap<String, Double>();
 	Map<String, Double> weightedScores = new HashMap<String, Double>();
-	
+	double norm_fb , norm_ang , norm_ang2 = 0.0 , total ;
 	GraphExplore() {
 		graph.setStrict( false );
 		graph.setAutoCreate( true );
 		//parseAndGraph( loadFromFile("C:/data/sample_1.json"), EVENT_ISSUES);
-		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_is.json"), EVENT_ISSUES);
 //		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
+		
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_is.json"), EVENT_ISSUES);
 		
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_pr.json"), EVENT_PR);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_pr.json"), EVENT_PR);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_pr.json"), EVENT_PR);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_pr.json"), EVENT_PR);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_pr.json"), EVENT_PR);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/final_pr02.json"), EVENT_PR);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_pr.json"), EVENT_PR);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_pr.json"), EVENT_PR);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_pr.json"), EVENT_PR);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_pr.json"), EVENT_PR);
+		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_pr.json"), EVENT_PR);
+
 		setGraph();
-		//graph.display();
+		initNormalizers();
+		graph.display();
 		calculateScores();
 		calculateWeightedScores();
 		
 		// optional prints true if score before weighted
-		getTopRepositories( true, false ); // after weighted
-		getTopRepositories( false , false ); // before weighted and will right to file flag
+		getTopRepositories( true, false );
+		getTopRepositories( false , false ); 
 		//printResult(ALL); // for debug, print after weighted along with other data.
 	}
 	
+	double pr_ctr = 0.0, is_ctr = 0.0;
 	public void calculateWeightedScores(){
 		for( GitNode n : gitList ) {
-			double open = 0.0 , close = 0.0 , merged = 0.0, pr = 0.0; // edit pr=0 this, temporary to avoid NaN
+			double open = 0.0 , close = 0.0 , merged = 0.0, pr = 0.0;
 			if( !n.isUserNode()) {
 				for( GitNode ng : n.getNeighbors()) {
 					Edge edge = graph.getEdge(""+ng.getName()+n.getName());
 					String status = edge.getAttribute("status").toString();
 					if (status.equals("opened")){
 						open++;
+						is_ctr++;
 					} else if( status.equals("closed")) {
 						close++;
+						is_ctr++;
 					} else if( status.equals("merged")) {
 						merged++;
+						pr_ctr++;
 					} else {
 						pr++;
+						pr_ctr++;
 					}
 				}
-				double hubScore = authorityScores.get(n.getName());
-				double boostIssues = MAX_POINT  * ( close / (open + close)); 
-				double boostPR = MAX_POINT * ( merged / pr );
+				double hubScore = hubScores.get(n.getName());
+				double boostIssues = MAX_POINT  * ( (open + close) / is_ctr ); 
+				double boostPR = MAX_POINT * ( (merged + pr) / pr_ctr );
 				double totalBoost = (Double.isNaN(boostIssues)? 0 : boostIssues) + (Double.isNaN(boostPR)? 0 : boostPR);
 				n.setBoost( totalBoost );
 				n.setStatusCount(open, close);
@@ -93,13 +102,14 @@ public class GraphExplore {
 	}
 	
 	public void calculateScores(){
-		for( int i = 0; i < 100000; i++ ) {
+		for( int i = 0; i < 10; i++ ) {
 			double norm = 0;
 			for( GitNode g : gitList ) {
 				if( g.isUserNode() ) {
 					authorityScores.replace(g.getName(), 0.0);
 					for( GitNode n : g.getNeighbors() ) {
 						double newAuth = authorityScores.get(g.getName()) + hubScores.get(n.getName());
+						
 						authorityScores.replace(g.getName(), newAuth );
 					}
 					norm = norm + ( authorityScores.get(g.getName()) * authorityScores.get(g.getName()) );
@@ -129,8 +139,32 @@ public class GraphExplore {
 					double newHub = hubScores.get(g.getName()) / norm;
 					hubScores.replace(g.getName(), newHub);
 				}
-			}
+			}	
 		}
+		
+		for( GitNode g : gitList ){
+			if ( !g.isUserNode() ) {
+				double newHub = hubScores.get(g.getName()) * getNormalize(g.getName());
+				hubScores.replace(g.getName(), newHub );
+			}
+		}	
+	}
+	
+	public double getNormalize( String name ) {
+		if( name.equals("facebook/react")){
+			return norm_fb;
+		} else if (name.equals("angular/angular")){
+			return norm_ang;
+		} else {
+			return norm_ang2;
+		}
+	}
+	
+	public void initNormalizers(){
+		total = (double) graph.getEdgeCount();
+		norm_fb = (double) graph.getNode("facebook/react").getDegree() / total ;
+		norm_ang = (double) graph.getNode("angular/angular").getDegree() / total ;
+		norm_ang2 = (double) graph.getNode("angular/angular.js").getDegree() / total;
 	}
 	
 	public void setGraph() {

@@ -1,8 +1,0 @@
-node#A {
-	shape: box;
-	size: 25px, 25px;
-	fill-mode: plain;   /* Default.          */
-	fill-color: red;    /* Default is black. */
-	stroke-mode: plain; /* Default is none.  */
-	stroke-color: blue; /* Default is black. */
-}

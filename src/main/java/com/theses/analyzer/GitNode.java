@@ -11,8 +11,6 @@ public class GitNode {
 	Node node;
 	List<GitNode> neighbor = new ArrayList<GitNode>();
 	Iterator<Node> it ;
-	double hub_score = 1;
-	double auth_score = 1;
 	double weighted_score = 0;
 	double open = 0;
 	double close = 0;

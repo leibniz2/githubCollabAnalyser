@@ -22,5 +22,6 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="/Users/rrosal/Documents/utopia/thesis/com.google.common_1.0.0.201004262004.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

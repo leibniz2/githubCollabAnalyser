@@ -15,6 +15,9 @@ public class GitNode {
 	double open = 0;
 	double close = 0;
 	double boost = 0;
+	private double er = 0.0;
+	private double oc = 0.0;
+	private double ms = 0.0;
 	private double merged = 0;
 	private double pr = 0;
 	boolean isUser = true;
@@ -93,5 +96,29 @@ public class GitNode {
 
 	void setPr(double pr) {
 		this.pr = pr;
+	}
+
+	double getEr() {
+		return er;
+	}
+
+	void setEr(double er) {
+		this.er = er;
+	}
+
+	double getOc() {
+		return oc;
+	}
+
+	void setOc(double oc) {
+		this.oc = oc;
+	}
+
+	double getMs() {
+		return ms;
+	}
+
+	void setMs(double ms) {
+		this.ms = ms;
 	}
 }

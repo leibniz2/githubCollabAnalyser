@@ -40,25 +40,27 @@ public class GraphExplore {
 		graph.setStrict( false );
 		graph.setAutoCreate( true );
 		//parseAndGraph( loadFromFile("C:/data/sample_1.json"), EVENT_ISSUES);
-//		parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
+		//parseAndGraph( loadFromFile("/Users/rrosal/Documents/sample_1.json"), EVENT_ISSUES);
 		
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_is.json"), EVENT_ISSUES);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_is.json"), EVENT_ISSUES);
-		
+//		
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/dec_pr.json"), EVENT_PR);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/jan_pr.json"), EVENT_PR);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/feb_pr.json"), EVENT_PR);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/mar_pr.json"), EVENT_PR);
 		parseAndGraph( loadFromFile("/Users/rrosal/Documents/df/apr_pr.json"), EVENT_PR);
 
+		
 		setGraph();
 		initNormalizers();
-		graph.display();
+//		graph.display();
 		calculateScores();
 		calculateWeightedScores();
+		getStats();
 		
 		// optional prints true if score before weighted
 		getTopRepositories( true, false );
@@ -91,6 +93,9 @@ public class GraphExplore {
 				double hubScore = hubScores.get(n.getName());
 				double boostIssues = MAX_POINT  * ( (open + close) / is_ctr ); 
 				double boostPR = MAX_POINT * ( (merged + pr) / pr_ctr );
+				n.setEr( (open + close) / (merged + pr)); // set er
+				n.setOc( open / close);
+				n.setMs( merged / (pr_ctr - merged) );
 				double totalBoost = (Double.isNaN(boostIssues)? 0 : boostIssues) + (Double.isNaN(boostPR)? 0 : boostPR);
 				n.setBoost( totalBoost );
 				n.setStatusCount(open, close);
@@ -225,8 +230,11 @@ public class GraphExplore {
 				
 				usr = graph.addNode(username);
 				usr.addAttribute("ui.label", username);
+				usr.addAttribute("ui.style", "text-offset: -5, -10;");
+//				usr.addAttribute("ui.style", "text-background-mode: plain;");
 				repo = graph.addNode(repo_name);
 				repo.addAttribute("ui.label", repo_name);
+				
 //				Thread.sleep(100);
 				Edge edge = graph.addEdge( ""+usr.getId()+repo.getId() , usr, repo);
 				edge.addAttribute("status", status);
@@ -254,6 +262,16 @@ public class GraphExplore {
 		} else {
 			System.out.println("Unhandled parsing event type");
 		}
+		
+		for( Node g : graph ) {
+			if( g.getId().equals("facebook/react")){ 
+				g.addAttribute("ui.style", "fill-color: blue;");
+			} else if ( g.getId().equals("angular/angular")) {
+				g.addAttribute("ui.style", "fill-color: orange;");
+			} else if( g.getId().equals("angular/angular.js")){
+				g.addAttribute("ui.style", "fill-color: yellow;");
+			}
+		}
 	}
 	
 	// sort top 10
@@ -261,11 +279,11 @@ public class GraphExplore {
 	public void getTopRepositories( boolean beforeWeighted, boolean writeToFile ){
 		String preText;
 		if( beforeWeighted ){	
-			sorted = crunchifySortMap(hubScores);
+			sorted = SortMap(hubScores);
 			preText = "hubTop10@" + new Date().toString();
 			System.out.println("Hub scores:");
 		} else {
-			sorted = crunchifySortMap(weightedScores);
+			sorted = (weightedScores);
 			preText = "weightedTop10@" + new Date().toString();
 			System.out.println("Weighted scores:");
 		}
@@ -275,7 +293,7 @@ public class GraphExplore {
 		for (Map.Entry<String, Double> entry : sorted.entrySet()) {	
 			if( entry.getKey().contains("/") && ctr < 10) {
 				tmp.put(entry.getKey(), entry.getValue());
-				System.out.println(entry.getKey() + "\t" + entry.getValue());
+				System.out.println(entry.getKey() + " -> " + entry.getValue() );
 				ctr++;
 			} 
 		}
@@ -294,7 +312,17 @@ public class GraphExplore {
 		
 	}
 	
-	public static <K, V extends Comparable<? super V>> Map<K, V> crunchifySortMap(final Map<K, V> mapToSort) {
+	public void getStats(){
+		System.out.println("Stats");
+		for( GitNode g : gitList ){
+			if( !g.isUserNode() ) {
+				
+				System.out.println(g.getName() + ": ER -> " + g.getEr() + " | O/C ->  " + g.getOc() + " | M/S -> " + g.getMs());
+			}
+		}
+	}
+	
+	public static <K, V extends Comparable<? super V>> Map<K, V> SortMap(final Map<K, V> mapToSort) {
 		List<Map.Entry<K, V>> entries = new ArrayList<Map.Entry<K, V>>(mapToSort.size());
  
 		entries.addAll(mapToSort.entrySet());
@@ -307,14 +335,14 @@ public class GraphExplore {
 			}
 		});
  
-		Map<K, V> sortedCrunchifyMap = new LinkedHashMap<K, V>();
+		Map<K, V> sortedMap = new LinkedHashMap<K, V>();
  
 		// The Map.entrySet method returns a collection-view of the map
 		for (Map.Entry<K, V> entry : entries) {
-			sortedCrunchifyMap.put(entry.getKey(), entry.getValue());
+			sortedMap.put(entry.getKey(), entry.getValue());
 		}
  
-		return sortedCrunchifyMap;
+		return sortedMap;
 	}
 	
 	// not yet finished
